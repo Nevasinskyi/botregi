@@ -1,7 +1,9 @@
-﻿import os
+```python
+import os
 import json
 import secrets
 import logging
+import asyncio
 from pathlib import Path
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,20 +14,25 @@ from telegram.ext import (
     ContextTypes,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8949636050:AAFhbh9RLFRgst78eNqJDOFtCs2ntokG5UI")
-
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").rstrip("/")
-WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+# Настройки Railway → Variables
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8949636050:AAFhbh9RLFRgst78eNqJDOFtCs2ntokG5UI").strip()
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://endearing-enchantment-production-c8a6.up.railway.app").rstrip("/")
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "klatgram-hook-7x9p2k").strip("/")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "fdgdsfdthfgetydftr667egdffhgdbvb")
 
 BASE_DIR = Path(__file__).resolve().parent
 USERS_FILE = BASE_DIR / "users.json"
+
+# Защита файла от одновременных изменений в одном процессе
+USERS_LOCK = asyncio.Lock()
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
+
+# -------------------- ХРАНЕНИЕ НОМЕРОВ --------------------
 
 def load_users():
     if not USERS_FILE.exists():
@@ -63,7 +70,6 @@ def reserve_number(user_id):
 
     used_numbers = set(users.values())
 
-    # Генерируем уникальный номер из 11 цифр.
     for _ in range(10000):
         number = str(secrets.randbelow(9_000_000_000) + 1_000_000_000)
 
@@ -85,36 +91,91 @@ def release_number(user_id):
     return number
 
 
+async def safe_get_user_number(user_id):
+    async with USERS_LOCK:
+        return get_user_number(user_id)
+
+
+async def safe_reserve_number(user_id):
+    async with USERS_LOCK:
+        return reserve_number(user_id)
+
+
+async def safe_release_number(user_id):
+    async with USERS_LOCK:
+        return release_number(user_id)
+
+
+# -------------------- МЕНЮ --------------------
+
 def main_menu():
     keyboard = [
-        [InlineKeyboardButton("Получить номер", callback_data="get_number")],
-        [InlineKeyboardButton("Мой номер", callback_data="my_number")],
-        [InlineKeyboardButton("Освободить номер", callback_data="release_number")],
+        [
+            InlineKeyboardButton(
+                "Получить номер",
+                callback_data="get_number",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "Мой номер",
+                callback_data="my_number",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "Освободить номер",
+                callback_data="release_number",
+            )
+        ],
     ]
+
     return InlineKeyboardMarkup(keyboard)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.effective_message.reply_text(
-        "KlatGram\n\n"
-        "Выбери действие в меню ниже.",
-        reply_markup=main_menu(),
-    )
+# -------------------- КОМАНДЫ --------------------
+
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    if update.effective_message:
+        await update.effective_message.reply_text(
+            "KlatGram\n\nВыбери действие в меню ниже.",
+            reply_markup=main_menu(),
+        )
 
 
-async def mynumber(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    number = get_user_number(update.effective_user.id)
+async def mynumber(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    user = update.effective_user
+    if user is None or update.effective_message is None:
+        return
+
+    number = await safe_get_user_number(user.id)
 
     if number is None:
-        message = "У тебя пока нет закреплённого номера. Используй /start."
+        message = (
+            "У тебя пока нет закреплённого номера. "
+            "Используй /start."
+        )
     else:
         message = f"Твой выданный номер: {number}"
 
     await update.effective_message.reply_text(message)
 
 
-async def release(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    number = release_number(update.effective_user.id)
+async def release(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    user = update.effective_user
+    if user is None or update.effective_message is None:
+        return
+
+    number = await safe_release_number(user.id)
 
     if number is None:
         message = "У тебя нет закреплённого номера."
@@ -124,63 +185,124 @@ async def release(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(message)
 
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+# -------------------- КНОПКИ --------------------
 
+async def button_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    query = update.callback_query
+
+    if query is None:
+        return
+
+    await query.answer()
     user_id = query.from_user.id
 
     if query.data == "get_number":
-        number = reserve_number(user_id)
+        number = await safe_reserve_number(user_id)
 
         if number is None:
             message = "Не удалось создать номер. Попробуй позже."
         else:
             message = (
                 f"Твой номер: {number}\n\n"
-                "Он сохранён за твоим аккаунтом бота.\n"
-                "Важно: это сгенерированный номер, а не подтверждение "
-                "того, что сервер KlatGram его принимает."
+                "Номер сохранён за твоим аккаунтом бота.\n"
+                "Это сгенерированный идентификатор, а не настоящий "
+                "номер телефона. Он не гарантирует возможность "
+                "регистрации или получения SMS в KlatGram."
             )
 
     elif query.data == "my_number":
-        number = get_user_number(user_id)
-        message = (
-            f"Твой номер: {number}"
-            if number
-            else "У тебя пока нет номера. Нажми «Получить номер»."
-        )
+        number = await safe_get_user_number(user_id)
+
+        if number:
+            message = f"Твой номер: {number}"
+        else:
+            message = (
+                "У тебя пока нет номера. "
+                "Нажми «Получить номер»."
+            )
 
     elif query.data == "release_number":
-        number = release_number(user_id)
-        message = (
-            f"Номер {number} освобождён."
-            if number
-            else "У тебя нет закреплённого номера."
-        )
+        number = await safe_release_number(user_id)
+
+        if number:
+            message = f"Номер {number} освобождён."
+        else:
+            message = "У тебя нет закреплённого номера."
 
     else:
         message = "Неизвестное действие."
 
-    await query.edit_message_text(message, reply_markup=main_menu())
+    await query.edit_message_text(
+        message,
+        reply_markup=main_menu(),
+    )
 
+
+# -------------------- ОБРАБОТКА ОШИБОК --------------------
+
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    logging.error(
+        "Ошибка при обработке обновления",
+        exc_info=context.error,
+    )
+
+
+# -------------------- ЗАПУСК WEBHOOK --------------------
 
 def main():
     if not BOT_TOKEN:
         raise RuntimeError(
-            "Не задан BOT_TOKEN. Добавь его в переменные окружения."
+            "Не задан BOT_TOKEN в переменных Railway."
         )
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    if not WEBHOOK_URL.startswith("https://"):
+        raise RuntimeError(
+            "WEBHOOK_URL должен быть публичным HTTPS-доменом Railway."
+        )
+
+    if not WEBHOOK_PATH or "/" in WEBHOOK_PATH:
+        raise RuntimeError(
+            "WEBHOOK_PATH должен быть непустой строкой без слешей."
+        )
+
+    if not WEBHOOK_SECRET:
+        raise RuntimeError(
+            "Не задан WEBHOOK_SECRET в переменных Railway."
+        )
+
+    application = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .concurrent_updates(8)
+        .build()
+    )
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("mynumber", mynumber))
     application.add_handler(CommandHandler("release", release))
     application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_error_handler(error_handler)
 
-    logging.info("Бот запущен")
-    application.run_polling()
+    port = int(os.getenv("PORT", "8080"))
+
+    logging.info("Запуск KlatGram через webhook")
+
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=WEBHOOK_PATH,
+        webhook_url=f"{WEBHOOK_URL}/{WEBHOOK_PATH}",
+        secret_token=WEBHOOK_SECRET,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
 
 if __name__ == "__main__":
     main()
+```
