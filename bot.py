@@ -12,7 +12,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8529279667:AAEiE7kuIVi-y85_6ZHOs2lYUwpbXgh5CgA")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8949636050:AAFhbh9RLFRgst78eNqJDOFtCs2ntokG5UI")
 
 BASE_DIR = Path(__file__).resolve().parent
 USERS_FILE = BASE_DIR / "users.json"
