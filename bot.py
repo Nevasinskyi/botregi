@@ -14,6 +14,10 @@ from telegram.ext import (
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8949636050:AAFhbh9RLFRgst78eNqJDOFtCs2ntokG5UI")
 
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").rstrip("/")
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
 BASE_DIR = Path(__file__).resolve().parent
 USERS_FILE = BASE_DIR / "users.json"
 
