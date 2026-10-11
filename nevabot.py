@@ -1015,7 +1015,6 @@ async def stop_auto_message(event):
 
 #АВТООТВЕТЧИК
 
-
 @bot.on(events.NewMessage)
 async def handler(event):
 
@@ -1023,95 +1022,50 @@ async def handler(event):
     global processing
 
     # Свои сообщения игнорируем
-
     if event.out:
         return
 
     chat_id = event.chat_id
     user_id = event.sender_id
 
-    if chat_id is None:
+    if chat_id is None or user_id is None:
         return
 
-    if user_id is None:
-        return
-
-    # В этом чате нет таргетов
-
+    # Проверяем, есть ли таргеты в этом чате
     if chat_id not in targets:
         return
 
-    # Этот пользователь не является таргетом
-
+    # Проверяем, является ли пользователь таргетом
     if user_id not in targets[chat_id]:
         return
 
-    # Отдельная защита для каждого
-    # сочетания чат + пользователь
-
-    key = (
-        chat_id,
-        user_id
-    )
+    # Защита от повторной обработки
+    key = (chat_id, user_id)
 
     if key in processing:
         return
 
-    processing.add(
-        key
-    )
+    processing.add(key)
 
     try:
-
         # Небольшая задержка
-
-        await asyncio.sleep(
-            0.4
-        )
+        await asyncio.sleep(0.4)
 
         reply = get_random_reply()
 
-        # Сначала пытаемся использовать
-        # назначенное этому пользователю фото
+        # Только назначенное пользователю фото
+        photo = target_photos.get(user_id)
 
-        photo = target_photos.get(
-            user_id
-        )
-
-        # Если своего фото нет —
-        # случайное
-
-        if photo is None:
-
-            photo = get_random_photo()
-
-        if (
-            photo
-            and os.path.exists(photo)
-        ):
-
-            await event.reply(
-                reply,
-                file=photo
-            )
-
+        if photo and os.path.exists(photo):
+            await event.reply(reply, file=photo)
         else:
-
-            await event.reply(
-                reply
-            )
+            await event.reply(reply)
 
     except Exception as e:
-
-        print(
-            f'Handler error: {e}'
-        )
+        print(f'Handler error: {e}')
 
     finally:
-
-        processing.discard(
-            key
-        )
+        processing.discard(key)
 
 
 # .STARTRP
