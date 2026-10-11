@@ -5,6 +5,7 @@ import os
 import time
 import re
 import psutil
+from pathlib import Path
 from telethon import TelegramClient, events
 
 
@@ -14,8 +15,10 @@ from telethon import TelegramClient, events
 API_ID = 37071915
 API_HASH = '813aa290bbc1be070ff00f6ca8eb8a19'
 OWNER_ID = 940460718
-PHRASES_FILE = r'D:\ботнет\phrases.txt'
-PHOTOS_DIR = r'D:\ботнет\photos'
+
+BASE_DIR = Path(__file__).resolve().parent
+PHRASES_FILE = BASE_DIR / "phrases.txt"
+PHOTOS_DIR = BASE_DIR / "photos"
 
 пикми_enabled = True
 пикми_enabled = False
@@ -23,11 +26,22 @@ PHOTOS_DIR = r'D:\ботнет\photos'
 
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
-bot = TelegramClient(
-    'user_session',
-    API_ID,
-    API_HASH
-)
+SESSION_STRING = os.getenv("TELEGRAM_SESSION", "").strip()
+
+if SESSION_STRING:
+    from telethon.sessions import StringSession
+
+    bot = TelegramClient(
+        StringSession(SESSION_STRING),
+        API_ID,
+        API_HASH
+    )
+else:
+    bot = TelegramClient(
+        str(BASE_DIR / "user_session"),
+        API_ID,
+        API_HASH
+    )
 
 
 #ЕБАННЫЕ ПЕРЕМЕННЫЕ
