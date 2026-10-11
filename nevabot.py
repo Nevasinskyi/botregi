@@ -83,19 +83,6 @@ selected_templates = {}
 add_templates = {}
 
 
-def load_templates():
-    if not TEMPLATES_FILE.exists():
-        return []
-
-    return [
-        line.strip()
-        for line in TEMPLATES_FILE.read_text(
-            encoding="utf-8"
-        ).splitlines()
-        if line.strip()
-    ]
-
-
 @bot.on(events.NewMessage(outgoing=True, pattern=r"^\.sb(?:\s+(\d+|reload))?$"))
 async def select_template(event):
     if event.sender_id != OWNER_ID:
@@ -109,7 +96,7 @@ async def select_template(event):
         return
 
     if not templates:
-        await event.respond("Файл с шаблонами не найден или пуст.")
+        await event.respond("Фаыл с шаблонами не найден или пуст.")
         return
 
     if arg is None:
@@ -1023,55 +1010,6 @@ async def stop_auto_message(event):
 
 #АВТООТВЕТЧИК
 
-@bot.on(events.NewMessage)
-async def handler(event):
-
-    global targets
-    global processing
-
-    # Свои сообщения игнорируем
-    if event.out:
-        return
-
-    chat_id = event.chat_id
-    user_id = event.sender_id
-
-    if chat_id is None or user_id is None:
-        return
-
-      key = (chat_id, user_id)
-
-    # Обрабатываем только назначенных пользователей
-    if key not in add_templates:
-        if chat_id not in targets or user_id not in targets[chat_id]:
-            return
-
-    # Защита от повторной обработки
-    key = (chat_id, user_id)
-
-    if key in processing:
-        return
-
-    processing.add(key)
-
-    try:
-        # Небольшая задержка
-        await asyncio.sleep(0.2)
-
-                reply = add_templates.get(key) or get_random_reply()
-
-        # Только назначенное пользователю фото
-        photo = target_photos.get(user_id)
-
-        if photo and os.path.exists(photo):
-            await event.reply(reply, file=photo)
-        else:
-            await event.reply(reply)
-
-    except Exception as e:
-        print(f'Handler error: {e}')
-
-    finally:
 
 @bot.on(events.NewMessage)
 async def handler(event):
@@ -1115,6 +1053,7 @@ async def handler(event):
 
     finally:
         processing.discard(key)
+
 
 
 # .STARTRP
