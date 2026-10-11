@@ -1,1 +1,3 @@
-python-telegram-bot[webhooks]>=20,<23
+pip install telethon
+pip install psutil
+pip install asyncio
