@@ -1904,8 +1904,10 @@ async def show_menu(event):
 ⛧ .help - помощь в управлении сообщением
 
 ⛧ t.me/sertypa ⛧
+
 """
-        await event.respond(menu_text)
+
+    await event.respond(menu_text)
 
 
 # ЗАПУСК
