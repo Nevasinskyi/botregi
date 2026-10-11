@@ -5,8 +5,8 @@ import os
 import time
 import re
 import psutil
-from pathlib import Path
 from telethon import TelegramClient, events
+from pathlib import Path
 
 
 #ВСЯКАЯ ХУЙНЯ ИЗ ЗА КОТОРОЙ ВСЕ РАБОТАЕТ
@@ -15,10 +15,13 @@ from telethon import TelegramClient, events
 API_ID = 37071915
 API_HASH = '813aa290bbc1be070ff00f6ca8eb8a19'
 OWNER_ID = 940460718
-
 BASE_DIR = Path(__file__).resolve().parent
 PHRASES_FILE = BASE_DIR / "phrases.txt"
 PHOTOS_DIR = BASE_DIR / "photos"
+BASE_DIR = Path(__file__).resolve().parent
+
+
+selected_template = {}
 
 пикми_enabled = True
 пикми_enabled = False
@@ -26,22 +29,11 @@ PHOTOS_DIR = BASE_DIR / "photos"
 
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
-SESSION_STRING = os.getenv("TELEGRAM_SESSION", "").strip()
-
-if SESSION_STRING:
-    from telethon.sessions import StringSession
-
-    bot = TelegramClient(
-        StringSession(SESSION_STRING),
-        API_ID,
-        API_HASH
-    )
-else:
-    bot = TelegramClient(
-        str(BASE_DIR / "user_session"),
-        API_ID,
-        API_HASH
-    )
+bot = TelegramClient(
+    'user_session',
+    API_ID,
+    API_HASH
+)
 
 
 #ЕБАННЫЕ ПЕРЕМЕННЫЕ
@@ -81,6 +73,63 @@ tag_tasks = {}
 # }
 
 auto_tasks = {}
+
+TEMPLATES_FILE = BASE_DIR / "templates.txt"
+
+# Выбранный шаблон по ID чата
+selected_templates = {}
+
+# Автоответчики: (chat_id, user_id) -> текст шаблона
+add_templates = {}
+
+
+def load_templates():
+    if not TEMPLATES_FILE.exists():
+        return []
+
+    return [
+        line.strip()
+        for line in TEMPLATES_FILE.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+
+@bot.on(events.NewMessage(outgoing=True, pattern=r"^\.sb(?:\s+(\d+|reload))?$"))
+async def select_template(event):
+    if event.sender_id != OWNER_ID:
+        return
+
+    arg = event.pattern_match.group(1)
+    templates = load_templates()
+
+    if arg == "reload":
+        await event.respond(f"Шаблоны обновлены. Найдено: {len(templates)}")
+        return
+
+    if not templates:
+        await event.respond("Файл с шаблонами не найден или пуст.")
+        return
+
+    if arg is None:
+        menu = "\n".join(
+            f"{i}. {text}"
+            for i, text in enumerate(templates, start=1)
+        )
+        await event.respond("⛧ ШАБЛОНЫ ⛧\n\n" + menu)
+        return
+
+    number = int(arg)
+
+    if not 1 <= number <= len(templates):
+        await event.respond(f"Укажи номер от 1 до {len(templates)}.")
+        return
+
+    selected_templates[event.chat_id] = templates[number - 1]
+    await event.respond(
+        f"Выбран шаблон №{number}:\n{templates[number - 1]}"
+    )
 
 pickme_enabled = False
 
@@ -155,6 +204,55 @@ async def system_status_handler(event):
     except Exception as error:
         print(f"[SYS] Ошибка: {error}")
         await event.edit("Не удалось получить состояние бота.")
+
+
+def load_templates():
+    if not TEMPLATES_FILE.exists():
+        return []
+
+    return [
+        line.strip()
+        for line in TEMPLATES_FILE.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+
+@bot.on(events.NewMessage(outgoing=True, pattern=r"^.sb(?:\s+(\d+|reload))?$"))
+async def select_template(event):
+    arg = event.pattern_match.group(1)
+
+    templates = load_templates()
+
+    if arg == "reload":
+        await event.reply(f"Шаблоны перечитаны. Найдено: {len(templates)}")
+        return
+
+    if not templates:
+        await event.reply("Файл пуст или не найден.")
+        return
+
+    if arg is None:
+        menu = "\n".join(
+            f"{i}. {text}"
+            for i, text in enumerate(templates, start=1)
+        )
+        await event.reply("Доступные шаблоны:\n\n" + menu)
+        return
+
+    number = int(arg)
+
+    if number < 1 or number > len(templates):
+        await event.reply(f"Укажи номер от 1 до {len(templates)}.")
+        return
+
+    selected_template[event.chat_id] = templates[number - 1]
+
+    await event.reply(
+        f"Выбран шаблон №{number}:\n\n"
+        f"{templates[number - 1]}"
+    )
 
 
 # ==============================
@@ -865,152 +963,62 @@ async def auto_message_task(
 
 @bot.on(
     events.NewMessage(
-        pattern=r'^\.add\s+(.+)\s+@([A-Za-z0-9_]{5,32})$'
+        outgoing=True,
+        pattern=r"^\.add\s+@?([A-Za-z0-9_]{5,32})$"
     )
 )
 async def start_auto_message(event):
-
     if event.sender_id != OWNER_ID:
         return
 
-    text = (
-        event.pattern_match
-        .group(1)
-        .strip()
-    )
-
-    username = (
-        event.pattern_match
-        .group(2)
-        .strip()
-        .lower()
-    )
-
+    username = event.pattern_match.group(1).lower()
     chat_id = event.chat_id
+    template = selected_templates.get(chat_id)
 
-    key = (
-        chat_id,
-        username
-    )
+    if not template:
+        await event.respond("Сначала выбери шаблон: .sb")
+        return
 
     try:
+        entity = await bot.get_entity(username)
+        key = (chat_id, entity.id)
 
-        entity = await bot.get_entity(
-            username
+        add_templates[key] = template
+
+        await event.respond(
+            f"Автоответчик включён для @{username}.\n"
         )
 
-        user_id = entity.id
-
-        # Если уже есть Auto —
-        # сначала останавливаем его
-
-        old_task = auto_tasks.get(
-            key
-        )
-
-        if old_task:
-
-            old_task.cancel()
-
-            try:
-
-                await old_task
-
-            except asyncio.CancelledError:
-
-                pass
-
-            except Exception:
-
-                pass
-
-            auto_tasks.pop(
-                key,
-                None
-            )
-
-        # Создаём новую задачу
-
-        task = asyncio.create_task(
-            auto_message_task(
-                chat_id,
-                user_id,
-                username,
-                text
-            )
-        )
-
-        auto_tasks[key] = task
-
-        print(
-            f'Auto запущен: '
-            f'@{username}, '
-            f'chat={chat_id}'
-        )
-
-    except Exception as e:
-
-        print(
-            f'Ошибка запуска Auto: {e}'
-        )
-
-
-# ==========================================
-# .STOPADD @USERNAME
-# ==========================================
+    except Exception as error:
+        print(f"[ADD] Ошибка: {error}")
+        await event.respond("Не удалось найти пользователя.")
 
 
 @bot.on(
     events.NewMessage(
-        pattern=r'^\.stopadd\s+@?([A-Za-z0-9_]{5,32})$'
+        outgoing=True,
+        pattern=r"^\.stopadd\s+@?([A-Za-z0-9_]{5,32})$"
     )
 )
 async def stop_auto_message(event):
-
     if event.sender_id != OWNER_ID:
         return
 
-    username = (
-        event.pattern_match
-        .group(1)
-        .strip()
-        .lower()
-    )
-
+    username = event.pattern_match.group(1).lower()
     chat_id = event.chat_id
 
-    key = (
-        chat_id,
-        username
-    )
+    try:
+        entity = await bot.get_entity(username)
+        key = (chat_id, entity.id)
 
-    print(
-        f'Остановка Auto: '
-        f'@{username}, '
-        f'chat={chat_id}'
-    )
+        if add_templates.pop(key, None) is not None:
+            await event.respond(f"Автоответчик для @{username} остановлен.")
+        else:
+            await event.respond(f"Для @{username} автоответчик не включён.")
 
-    task = auto_tasks.pop(
-        key,
-        None
-    )
-
-    if task:
-
-        task.cancel()
-
-        print(
-            f'Auto успешно остановлен: '
-            f'@{username}'
-        )
-
-    else:
-
-        print(
-            f'Auto не найден: '
-            f'@{username} '
-            f'в чате {chat_id}'
-        )
+    except Exception as error:
+        print(f"[STOPADD] Ошибка: {error}")
+        await event.respond("Не удалось найти пользователя.")
 
 
 #АВТООТВЕТЧИК
@@ -1031,13 +1039,12 @@ async def handler(event):
     if chat_id is None or user_id is None:
         return
 
-    # Проверяем, есть ли таргеты в этом чате
-    if chat_id not in targets:
-        return
+      key = (chat_id, user_id)
 
-    # Проверяем, является ли пользователь таргетом
-    if user_id not in targets[chat_id]:
-        return
+    # Обрабатываем только назначенных пользователей
+    if key not in add_templates:
+        if chat_id not in targets or user_id not in targets[chat_id]:
+            return
 
     # Защита от повторной обработки
     key = (chat_id, user_id)
@@ -1049,9 +1056,9 @@ async def handler(event):
 
     try:
         # Небольшая задержка
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.2)
 
-        reply = get_random_reply()
+                reply = add_templates.get(key) or get_random_reply()
 
         # Только назначенное пользователю фото
         photo = target_photos.get(user_id)
@@ -1773,7 +1780,7 @@ async def пикми_editor(event):
 
     if (
         text.startswith('.')
-        or text.startswith(',')
+        or text.startswith('!')
     ):
 
         return
@@ -1855,13 +1862,17 @@ async def show_menu(event):
 
 ⛧ .chatid - показывает айди чата
 
-⛧ .help - помощь в управлении сообщением
+⛧ !sb — показать список шаблонов
+
+⛧ !sb (номер шаблона) — выбрать шаблон
+
+⛧ !sb reload — перечитать файл после редактирования
 
 ⛧ t.me/sertypa ⛧
-
 """
-
+    
     await event.respond(menu_text)
+
 
 
 # ЗАПУСК
