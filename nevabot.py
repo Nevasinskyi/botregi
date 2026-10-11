@@ -925,7 +925,7 @@ async def auto_message_task(
         pattern=r"^\.add\s+@?([A-Za-z0-9_]{5,32})$"
     )
 )
-async def start_auto_message(event):
+async def auto_message_task(event):
     if event.sender_id != OWNER_ID:
         return
 
