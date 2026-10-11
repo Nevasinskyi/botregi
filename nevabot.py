@@ -97,7 +97,7 @@ async def select_template(event):
         return
 
     if not templates:
-        await event.respond("Фаыл с шаблонами не найден или пуст.")
+        await event.respond("Файл с шаблонами не найден или пуст.")
         return
 
     if arg is None:
@@ -213,46 +213,11 @@ def load_templates():
     ]
 
 
-@bot.on(events.NewMessage(outgoing=True, pattern=r"^.sb(?:\s+(\d+|reload))?$"))
-async def select_template(event):
-    arg = event.pattern_match.group(1)
-
-    templates = load_templates()
-
-    if arg == "reload":
-        await event.reply(f"Шаблоны перечитаны. Найдено: {len(templates)}")
-        return
-
-    if not templates:
-        await event.reply("Файл пуст или не найден.")
-        return
-
-    if arg is None:
-        menu = "\n".join(
-            f"{i}. {text}"
-            for i, text in enumerate(templates, start=1)
-        )
-        await event.reply("Доступные шаблоны:\n\n" + menu)
-        return
-
-    number = int(arg)
-
-    if number < 1 or number > len(templates):
-        await event.reply(f"Укажи номер от 1 до {len(templates)}.")
-        return
-
-    selected_template[event.chat_id] = templates[number - 1]
-
-    await event.reply(
-        f"Выбран шаблон №{number}:\n\n"
-        f"{templates[number - 1]}"
-    )
-
 
 # ==============================
 # ДОПОЛНИТЕЛЬНЫЕ КОМАНДЫ УПРАВЛЕНИЯ
 # ==============================
-
+ы
 import re
 
 # Настройки этого блока
