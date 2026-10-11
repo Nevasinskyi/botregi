@@ -1901,23 +1901,11 @@ async def show_menu(event):
 
 ⛧ .chatid - показывает айди чата
 
+⛧ .help - помощь в управлении сообщением
+
 ⛧ t.me/sertypa ⛧
 """
-
-    photo = get_random_photo()
-
-    if photo:
-
-        await event.respond(
-            menu_text,
-            file=photo
-        )
-
-    else:
-
-        await event.respond(
-            menu_text
-        )
+        await event.respond(menu_text)
 
 
 # ЗАПУСК
