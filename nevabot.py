@@ -1072,6 +1072,48 @@ async def handler(event):
         print(f'Handler error: {e}')
 
     finally:
+
+@bot.on(events.NewMessage)
+async def handler(event):
+    if event.out:
+        return
+
+    chat_id = event.chat_id
+    user_id = event.sender_id
+
+    if chat_id is None or user_id is None:
+        return
+
+    key = (chat_id, user_id)
+
+    is_add_target = key in add_templates
+    is_regular_target = (
+        chat_id in targets and user_id in targets[chat_id]
+    )
+
+    if not is_add_target and not is_regular_target:
+        return
+
+    if key in processing:
+        return
+
+    processing.add(key)
+
+    try:
+        await asyncio.sleep(0.2)
+
+        reply = add_templates.get(key) or get_random_reply()
+        photo = target_photos.get(user_id)
+
+        if photo and os.path.exists(photo):
+            await event.reply(reply, file=photo)
+        else:
+            await event.reply(reply)
+
+    except Exception as e:
+        print(f"Handler error: {e}")
+
+    finally:
         processing.discard(key)
 
 
