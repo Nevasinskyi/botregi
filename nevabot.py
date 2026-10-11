@@ -5,6 +5,7 @@ import os
 import time
 import re
 import psutil
+from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from pathlib import Path
 
@@ -30,7 +31,7 @@ selected_template = {}
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
 bot = TelegramClient(
-    'user_session',
+    StringSession(os.environ["TELEGRAM_SESSION"]),
     API_ID,
     API_HASH
 )
