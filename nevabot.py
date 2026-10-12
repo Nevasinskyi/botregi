@@ -5,6 +5,8 @@ import os
 import time
 import re
 import psutil
+from config import API_ID, API_HASH, COMMAND_PATTERNS
+from dotenv import load_dotenv
 from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from pathlib import Path
@@ -31,9 +33,9 @@ selected_template = {}
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
 bot = TelegramClient(
-    StringSession(os.environ["TELEGRAM_SESSION"]),
-    API_ID,
-    API_HASH
+    "neva_session",
+     API_ID, 
+     API_HASH
 )
 
 
@@ -75,97 +77,13 @@ tag_tasks = {}
 
 auto_tasks = {}
 
-TEMPLATES_FILE = BASE_DIR / "templates.txt"
-
-# Выбранный шаблон по ID чата
-selected_templates = {}
-
 # Автоответчики: (chat_id, user_id) -> текст шаблона
 add_templates = {}
-
-
-@bot.on(events.NewMessage(outgoing=True, pattern=r"^\.sb(?:\s+(\d+|reload))?$"))
-async def select_template(event):
-    if event.sender_id != OWNER_ID:
-        return
-
-    arg = event.pattern_match.group(1)
-    templates = load_templates()
-
-    if arg == "reload":
-        await event.respond(f"Шаблоны обновлены. Найдено: {len(templates)}")
-        return
-
-    if not templates:
-        await event.respond("Файл с шаблонами не найден или пуст.")
-        return
-
-    if arg is None:
-        menu = "\n".join(
-            f"{i}. {text}"
-            for i, text in enumerate(templates, start=1)
-        )
-        await event.respond("⛧ ШАБЛОНЫ ⛧\n\n" + menu)
-        return
-
-    number = int(arg)
-
-    if not 1 <= number <= len(templates):
-        await event.respond(f"Укажи номер от 1 до {len(templates)}.")
-        return
-
-    selected_templates[event.chat_id] = templates[number - 1]
-    await event.respond(
-        f"Выбран шаблон №{number}:\n{templates[number - 1]}"
-    )
-
-pickme_enabled = False
-
-
-#БЛЯДСКИЕ КОММАНДЫ КОТОРЫЕ УДАЛЯЮТСЯ
-
-
-COMMAND_PATTERNS = [
-    r'^\.startrp(?:\s+.*)?$',
-    r'^\.unrp(?:\s+.*)?$',
-    r'^\.list$',
-    r'^\.clearrp$',
-    r'^\.chatid$',
-    r'^\.sb$',
-    r'^\.sb reload$',
-    r'^\.sb 1$',
-    r'^\.sb 2$',
-    r'^\.sb 3$',
-
-
-
-    r'^\.add\s+.*$',
-    r'^\.stopadd\s+.*$',
-
-    r'^\.tagger(?:\s+.*)?$',
-    r'^\.stoptagger$',
-
-    r'^\.photo(?:\s+.*)?$',
-
-    r'^\.menu$',
-    r'^\.id$',
-
-    r'^\.pickmeon$',
-    r'^\.pickmeoff$',
-]
-
-
-
 
  
 # ==============================
 # СОСТОЯНИЕ ПРОЦЕССА БОТА
 # ==============================
-
-import time
-import os
-import asyncio
-import psutil
 
 BOT_START_TIME = time.monotonic()
 
@@ -610,373 +528,6 @@ def get_random_reply():
         f'{reply} '
         f'{symbol}'
     )
-
-
-#ТЕГГЕР КОТОРЫЙ НЕ РАБОТАЕТ
-
-
-async def tagger_task(
-    chat_id,
-    username,
-    interval_seconds
-):
-
-    try:
-
-        entity = await bot.get_entity(
-            username
-        )
-
-    except Exception as e:
-
-        print(
-            f'Пользователь {username} не найден: {e}'
-        )
-
-        return
-
-    if getattr(
-        entity,
-        'username',
-        None
-    ):
-
-        mention = (
-            f'@{entity.username}'
-        )
-
-    else:
-
-        name = (
-            getattr(
-                entity,
-                'first_name',
-                None
-            )
-            or 'пользователь'
-        )
-
-        mention = (
-            f'[{name}]'
-            f'(tg://user?id={entity.id})'
-        )
-
-    while True:
-
-        try:
-
-            await asyncio.sleep(
-                interval_seconds
-            )
-
-            await bot.send_message(
-                chat_id,
-                mention,
-                parse_mode='md'
-            )
-
-            print(
-                f'Tagged {mention} '
-                f'in chat {chat_id}'
-            )
-
-        except asyncio.CancelledError:
-
-            break
-
-        except Exception as e:
-
-            print(
-                f'Tagger error: {e}'
-            )
-
-            break
-
-
-#ТЕГГЕР КОТОРЫЙ НЕ РАБОТАЕТ
-
-
-@bot.on(
-    events.NewMessage(
-        pattern=r'^\.tagger\s+(\S+)\s+(\d+)\s*(мин|минут|сек|секунд)?$'
-    )
-)
-async def start_tagger(event):
-
-    if event.sender_id != OWNER_ID:
-        return
-
-    chat_id = event.chat_id
-
-    username = (
-        event.pattern_match
-        .group(1)
-        .strip()
-        .lstrip('@')
-    )
-
-    value = int(
-        event.pattern_match
-        .group(2)
-    )
-
-    unit = (
-        event.pattern_match
-        .group(3)
-    )
-
-    if unit:
-
-        unit = unit.lower()
-
-    else:
-
-        # Если единица не указана,
-        # считаем секунды
-
-        unit = 'сек'
-
-    if unit in (
-        'мин',
-        'минут'
-    ):
-
-        interval = value * 60
-
-    else:
-
-        interval = value
-
-    # Минимум 5 секунд
-
-    if interval < 5:
-
-        print(
-            'Tagger не запущен: '
-            'минимальный интервал 5 секунд'
-        )
-
-        return
-
-    # Если в этом чате уже есть теггер,
-    # останавливаем его
-
-    old_task = tag_tasks.get(
-        chat_id
-    )
-
-    if old_task:
-
-        old_task.cancel()
-
-        try:
-
-            await old_task
-
-        except asyncio.CancelledError:
-
-            pass
-
-        except Exception:
-
-            pass
-
-        tag_tasks.pop(
-            chat_id,
-            None
-        )
-
-    # Запускаем новый
-
-    task = asyncio.create_task(
-        tagger_task(
-            chat_id,
-            username,
-            interval
-        )
-    )
-
-    tag_tasks[chat_id] = task
-
-    print(
-        f'Tagger запущен: '
-        f'@{username}, '
-        f'{value} {unit}, '
-        f'chat={chat_id}'
-    )
-
-
-#.STOPTAGGER
-
-
-@bot.on(
-    events.NewMessage(
-        pattern=r'^\.stoptagger$'
-    )
-)
-async def stop_tagger(event):
-
-    if event.sender_id != OWNER_ID:
-        return
-
-    chat_id = event.chat_id
-
-    task = tag_tasks.get(
-        chat_id
-    )
-
-    if task:
-
-        task.cancel()
-
-        try:
-
-            await task
-
-        except asyncio.CancelledError:
-
-            pass
-
-        except Exception:
-
-            pass
-
-        tag_tasks.pop(
-            chat_id,
-            None
-        )
-
-        print(
-            f'Tagger stopped in chat {chat_id}'
-        )
-
-    else:
-
-        print(
-            f'No active tagger in chat {chat_id}'
-        )
-
-
-# ==========================================
-# АВТОСООБЩЕНИЕ
-# ==========================================
-
-
-async def auto_message_task(
-    chat_id,
-    user_id,
-    username,
-    text
-):
-
-    try:
-
-        while True:
-
-            # Время ожидания в секундах
-            # 1 = 1 секунда
-            # 0.5 = 500 миллисекунд
-            # 600 = 10 минут
-
-            await asyncio.sleep(
-                0.2
-            )
-
-            message = (
-                f'<a href="tg://user?id={user_id}">'
-                f'{html.escape(text)}'
-                f'</a>'
-            )
-
-            await bot.send_message(
-                chat_id,
-                message,
-                parse_mode='html'
-            )
-
-            print(
-                f'Автосообщение отправлено '
-                f'@{username} '
-                f'в чат {chat_id}'
-            )
-
-    except asyncio.CancelledError:
-
-        print(
-            f'Auto остановлен: '
-            f'@{username}'
-        )
-
-    except Exception as e:
-
-        print(
-            f'Auto error: {e}'
-        )
-
-
-# ==========================================
-# .ADD ТЕКСТ @USERNAME
-# ==========================================
-
-
-@bot.on(
-    events.NewMessage(
-        outgoing=True,
-        pattern=r"^\.add\s+@?([A-Za-z0-9_]{5,32})$"
-    )
-)
-async def auto_message_task(event):
-    if event.sender_id != OWNER_ID:
-        return
-
-    username = event.pattern_match.group(1).lower()
-    chat_id = event.chat_id
-    template = selected_templates.get(chat_id)
-
-    if not template:
-        await event.respond("Сначала выбери шаблон: .sb")
-        return
-
-    try:
-        entity = await bot.get_entity(username)
-        key = (chat_id, entity.id)
-
-        add_templates[key] = template
-
-        await event.respond(
-            f"Автоответчик включён для @{username}.\n"
-        )
-
-    except Exception as error:
-        print(f"[ADD] Ошибка: {error}")
-        await event.respond("Не удалось найти пользователя.")
-
-
-@bot.on(
-    events.NewMessage(
-        outgoing=True,
-        pattern=r"^\.stopadd\s+@?([A-Za-z0-9_]{5,32})$"
-    )
-)
-async def stop_auto_message(event):
-    if event.sender_id != OWNER_ID:
-        return
-
-    username = event.pattern_match.group(1).lower()
-    chat_id = event.chat_id
-
-    try:
-        entity = await bot.get_entity(username)
-        key = (chat_id, entity.id)
-
-        if add_templates.pop(key, None) is not None:
-            await event.respond(f"Автоответчик для @{username} остановлен.")
-        else:
-            await event.respond(f"Для @{username} автоответчик не включён.")
-
-    except Exception as error:
-        print(f"[STOPADD] Ошибка: {error}")
-        await event.respond("Не удалось найти пользователя.")
 
 
 #АВТООТВЕТЧИК
@@ -1784,43 +1335,22 @@ async def show_menu(event):
         return
 
     menu_text = """
-⛧ lil menu ⛧
+⛧ yocio menu ⛧
 
 ⛧ .startrp @user1 @user2  — добавить таргетов
-
 ⛧ .unrp @user1 @user2 — удалить таргетов
-
 ⛧ .list — список таргетов
-
-⛧ .add текст @user — автосообщение
-
-⛧ .stopadd @user — остановить автосообщение
-
 ⛧ .clearrp — удалить всех таргетов
-
 ⛧ .tagger @username 5 сек — запустить теггер
-
 ⛧ .stoptagger — остановить теггер
-
 ⛧ .photo @username photo.jpg — назначить фото
-
 ⛧ .id — показать айди
-
 ⛧ .pickmeon — включить пикми режим
-
 ⛧ .pickmeoff — выключить пикми режим
-
 ⛧ .menu — меню
-
 ⛧ .chatid - показывает айди чата
 
-⛧ .sb — показать список шаблонов
-
-⛧ .sb (номер шаблона) — выбрать шаблон
-
-⛧ .sb reload — перечитать файл после редактирования
-
-⛧ t.me/sertypa ⛧
+⛧ owner t.me/sertypa ⛧
 """
     
     await event.respond(menu_text)
