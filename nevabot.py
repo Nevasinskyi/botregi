@@ -1539,7 +1539,7 @@ async def show_menu(event):
 ⛧ .menu — меню
 ⛧ .chatid — показывает айди чата
 
-⛧ owner @sertypa | @ruharded⛧
+⛧ owner @sertypa | @ruharded ⛧
 """
     
     await event.respond(menu_text)
