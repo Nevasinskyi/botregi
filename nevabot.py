@@ -688,8 +688,8 @@ def get_random_photo():
 
 
 FRAME_SYMBOLS = [
-    '⛧',
-    '†'
+    '',
+    ''
 ]
 
 
@@ -1539,7 +1539,7 @@ async def show_menu(event):
 ⛧ .menu — меню
 ⛧ .chatid — показывает айди чата
 
-⛧ owner t.me/sertypa ⛧
+⛧ owner @sertypa | @ruharded⛧
 """
     
     await event.respond(menu_text)
