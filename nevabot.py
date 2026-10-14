@@ -12,11 +12,18 @@ from telethon import TelegramClient, events
 from pathlib import Path
 
 #ВХОД ПО СЕССИИ
+import os
+from telethon.sessions import StringSession
+
+session_string = os.environ.get("TELEGRAM_SESSION", "").strip()
+
+if not session_string:
+    raise RuntimeError("Не задана переменная TELEGRAM_SESSION")
 
 bot = TelegramClient(
-    "neva_session",
-     API_ID, 
-     API_HASH
+    StringSession(session_string),
+    API_ID,
+    API_HASH
 )
 
 
@@ -1543,16 +1550,16 @@ async def show_menu(event):
 
 
 async def main():
+    print('Запускается...')
 
-    print(
-        'Запускается...'
-    )
+    await bot.connect()
 
-    await bot.start()
+    if not await bot.is_user_authorized():
+        raise RuntimeError(
+            "Сессия не авторизована. Проверь TELEGRAM_SESSION в Railway."
+        )
 
-    print(
-        'успешный запуск'
-    )
+    print('Успешный запуск')
 
     await bot.run_until_disconnected()
 
