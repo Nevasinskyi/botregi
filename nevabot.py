@@ -1524,8 +1524,8 @@ async def show_menu(event):
     menu_text = """
 ⛧ yocio menu ⛧
 
-⛧ .startrp @user1 @user2  — добавить таргетов
-⛧ .unrp @user1 @user2 — удалить таргетов
+⛧ .startrp @user @user  — добавить таргетов
+⛧ .unrp @user @user — удалить таргетов
 ⛧ .list — список таргетов
 ⛧ .clearrp — удалить всех таргетов
 ⛧ .tagger @username 5 сек — запустить теггер
@@ -1533,7 +1533,7 @@ async def show_menu(event):
 ⛧ .photo @username photo.jpg — назначить фото
 ⛧ .id — показать айди
 ⛧ .add @user — спам текстом
-⛧ .stopadd — останавливает
+⛧ .stopadd — останавливает спам
 ⛧ .pickmeon — включить пикми режим
 ⛧ .pickmeoff — выключить пикми режим
 ⛧ .menu — меню
