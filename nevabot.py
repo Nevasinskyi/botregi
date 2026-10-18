@@ -32,7 +32,6 @@ selected_template = {}
 
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
-# Авторизация через TELEGRAM_SESSION из Railway Variables
 session_string = os.getenv("TELEGRAM_SESSION")
 
 if not session_string:
@@ -1369,17 +1368,17 @@ async def show_menu(event):
 
 
 async def main():
+    print("Запускается...")
 
-    print(
-        'Запускается...'
-    )
+    await bot.connect()
 
-    await bot.start()
+    if not await bot.is_user_authorized():
+        raise RuntimeError(
+            "Сессия не авторизована. "
+            "Проверь значение TELEGRAM_SESSION в Railway."
+        )
 
-    print(
-        'успешный запуск'
-    )
-
+    print("Успешный запуск")
     await bot.run_until_disconnected()
 
 
@@ -1399,3 +1398,4 @@ if __name__ == '__main__':
         print(
             '\nUserbot stopped'
         )
+
