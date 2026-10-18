@@ -1327,6 +1327,201 @@ async def пикми_editor(event):
             f'пикми editor error: {e}'
         )
 
+# ==========================================
+# .ADD ТЕКСТ @USERNAME
+# ==========================================
+
+@bot.on(
+    events.NewMessage(
+        pattern=r'^\.add\s+(.+)\s+@([A-Za-z0-9_]{5,32})$'
+    )
+)
+async def start_auto_message(event):
+
+    if event.sender_id != OWNER_ID:
+        return
+
+    text = (
+        event.pattern_match
+        .group(1)
+        .strip()
+    )
+
+    username = (
+        event.pattern_match
+        .group(2)
+        .strip()
+        .lower()
+    )
+
+    chat_id = event.chat_id
+
+    key = (
+        chat_id,
+        username
+    )
+
+    try:
+
+        entity = await bot.get_entity(
+            username
+        )
+
+        user_id = entity.id
+
+        # Если уже есть Auto —
+        # сначала останавливаем его
+
+        old_task = auto_tasks.get(
+            key
+        )
+
+        if old_task:
+
+            old_task.cancel()
+
+            try:
+                await old_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+
+            auto_tasks.pop(
+                key,
+                None
+            )
+
+        # Создаём новую задачу
+
+        task = asyncio.create_task(
+            auto_message_task(
+                chat_id,
+                user_id,
+                username,
+                text
+            )
+        )
+
+        auto_tasks[key] = task
+
+        print(
+            f'Auto запущен: '
+            f'@{username}, '
+            f'chat={chat_id}'
+        )
+
+    except Exception as e:
+
+        print(
+            f'Ошибка запуска Auto: {e}'
+        )
+
+
+# ==========================================
+# .STOPADD @USERNAME
+# ==========================================
+
+@bot.on(
+    events.NewMessage(
+        pattern=r'^\.stopadd\s+@?([A-Za-z0-9_]{5,32})$'
+    )
+)
+async def stop_auto_message(event):
+
+    if event.sender_id != OWNER_ID:
+        return
+
+    username = (
+        event.pattern_match
+        .group(1)
+        .strip()
+        .lower()
+    )
+
+    chat_id = event.chat_id
+
+    key = (
+        chat_id,
+        username
+    )
+
+    print(
+        f'Остановка Auto: '
+        f'@{username}, '
+        f'chat={chat_id}'
+    )
+
+    task = auto_tasks.pop(
+        key,
+        None
+    )
+
+    if task:
+
+        task.cancel()
+
+        print(
+            f'Auto успешно остановлен: '
+            f'@{username}'
+        )
+
+    else:
+
+        print(
+            f'Auto не найден: '
+            f'@{username} '
+            f'в чате {chat_id}'
+        )
+ 
+# ==========================================
+# АВТОСООБЩЕНИЕ
+# ==========================================
+
+auto_tasks = {}
+
+
+async def auto_message_task(
+    chat_id,
+    user_id,
+    username,
+    text
+):
+    try:
+
+        while True:
+
+            await asyncio.sleep(100 / 1000)
+
+            message = (
+                f'<a href="tg://user?id={user_id}">'
+                f'{html.escape(text)}'
+                f'</a>'
+            )
+
+            await bot.send_message(
+                chat_id,
+                message,
+                parse_mode='html'
+            )
+
+            print(
+                f'Автосообщение отправлено '
+                f'@{username} в чат {chat_id}'
+            )
+
+    except asyncio.CancelledError:
+
+        print(
+            f'Auto остановлен: '
+            f'@{username}'
+        )
+
+    except Exception as e:
+
+        print(
+            f'Auto error: {e}'
+        )
 
 # .MENU
 
@@ -1348,8 +1543,6 @@ async def show_menu(event):
 ⛧ .unrp @user1 @user2 — удалить таргетов
 ⛧ .list — список таргетов
 ⛧ .clearrp — удалить всех таргетов
-⛧ .tagger @username 5 сек — запустить теггер
-⛧ .stoptagger — остановить теггер
 ⛧ .photo @username photo.jpg — назначить фото
 ⛧ .id — показать айди
 ⛧ .pickmeon — включить пикми режим
@@ -1398,4 +1591,3 @@ if __name__ == '__main__':
         print(
             '\nUserbot stopped'
         )
-
