@@ -32,10 +32,18 @@ selected_template = {}
 
 #ЕБУЧИЙ ВХОД ПО СЕССИИ
 
+# Авторизация через TELEGRAM_SESSION из Railway Variables
+session_string = os.getenv("TELEGRAM_SESSION")
+
+if not session_string:
+    raise RuntimeError(
+        "TELEGRAM_SESSION не найдена в переменных Railway"
+    )
+
 bot = TelegramClient(
-    "neva_session",
-     API_ID, 
-     API_HASH
+    StringSession(session_string),
+    API_ID,
+    API_HASH
 )
 
 
