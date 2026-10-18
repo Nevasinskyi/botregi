@@ -5,25 +5,37 @@ import os
 import time
 import re
 import psutil
-from config import API_ID, API_HASH, COMMAND_PATTERNS, OWNER_ID, BASE_DIR, PHRASES_FILE
+from config import API_ID, API_HASH, COMMAND_PATTERNS
 from dotenv import load_dotenv
 from telethon.sessions import StringSession
 from telethon import TelegramClient, events
 from pathlib import Path
 
-#ВХОД ПО СЕССИИ
-import os
-from telethon.sessions import StringSession
 
-session_string = os.environ.get("TELEGRAM_SESSION", "").strip()
+#ВСЯКАЯ ХУЙНЯ ИЗ ЗА КОТОРОЙ ВСЕ РАБОТАЕТ
 
-if not session_string:
-    raise RuntimeError("Не задана переменная TELEGRAM_SESSION")
+
+API_ID = 37071915
+API_HASH = '813aa290bbc1be070ff00f6ca8eb8a19'
+OWNER_ID = 940460718
+BASE_DIR = Path(__file__).resolve().parent
+PHRASES_FILE = BASE_DIR / "phrases.txt"
+PHOTOS_DIR = BASE_DIR / "photos"
+BASE_DIR = Path(__file__).resolve().parent
+
+
+selected_template = {}
+
+пикми_enabled = True
+пикми_enabled = False
+
+
+#ЕБУЧИЙ ВХОД ПО СЕССИИ
 
 bot = TelegramClient(
-    StringSession(session_string),
-    API_ID,
-    API_HASH
+    "neva_session",
+     API_ID, 
+     API_HASH
 )
 
 
@@ -50,10 +62,6 @@ target_photos = {}
 
 processing = set()
 
-selected_template = {}
-
-пикми_enabled = True
-пикми_enabled = False
 
 # tag_tasks:
 # {
@@ -72,201 +80,6 @@ auto_tasks = {}
 # Автоответчики: (chat_id, user_id) -> текст шаблона
 add_templates = {}
 
-# ==========================================
-# АВТОСООБЩЕНИЕ
-# ==========================================
-
-auto_tasks = {}
-
-
-async def auto_message_task(
-    chat_id,
-    user_id,
-    username,
-    text
-):
-    try:
-
-        while True:
-
-            await asyncio.sleep(100 / 1000)
-
-            message = (
-                f'<a href="tg://user?id={user_id}">'
-                f'{html.escape(text)}'
-                f'</a>'
-            )
-
-            await bot.send_message(
-                chat_id,
-                message,
-                parse_mode='html'
-            )
-
-            print(
-                f'Автосообщение отправлено '
-                f'@{username} в чат {chat_id}'
-            )
-
-    except asyncio.CancelledError:
-
-        print(
-            f'Auto остановлен: '
-            f'@{username}'
-        )
-
-    except Exception as e:
-
-        print(
-            f'Auto error: {e}'
-        )
-
-# ==========================================
-# .ADD ТЕКСТ @USERNAME
-# ==========================================
-
-@bot.on(
-    events.NewMessage(
-        pattern=r'^\.add\s+(.+)\s+@([A-Za-z0-9_]{5,32})$'
-    )
-)
-async def start_auto_message(event):
-
-    if event.sender_id != OWNER_ID:
-        return
-
-    text = (
-        event.pattern_match
-        .group(1)
-        .strip()
-    )
-
-    username = (
-        event.pattern_match
-        .group(2)
-        .strip()
-        .lower()
-    )
-
-    chat_id = event.chat_id
-
-    key = (
-        chat_id,
-        username
-    )
-
-    try:
-
-        entity = await bot.get_entity(
-            username
-        )
-
-        user_id = entity.id
-
-        # Если уже есть Auto —
-        # сначала останавливаем его
-
-        old_task = auto_tasks.get(
-            key
-        )
-
-        if old_task:
-
-            old_task.cancel()
-
-            try:
-                await old_task
-            except asyncio.CancelledError:
-                pass
-            except Exception:
-                pass
-
-            auto_tasks.pop(
-                key,
-                None
-            )
-
-        # Создаём новую задачу
-
-        task = asyncio.create_task(
-            auto_message_task(
-                chat_id,
-                user_id,
-                username,
-                text
-            )
-        )
-
-        auto_tasks[key] = task
-
-        print(
-            f'Auto запущен: '
-            f'@{username}, '
-            f'chat={chat_id}'
-        )
-
-    except Exception as e:
-
-        print(
-            f'Ошибка запуска Auto: {e}'
-        )
-
-
-# ==========================================
-# .STOPADD @USERNAME
-# ==========================================
-
-@bot.on(
-    events.NewMessage(
-        pattern=r'^\.stopadd\s+@?([A-Za-z0-9_]{5,32})$'
-    )
-)
-async def stop_auto_message(event):
-
-    if event.sender_id != OWNER_ID:
-        return
-
-    username = (
-        event.pattern_match
-        .group(1)
-        .strip()
-        .lower()
-    )
-
-    chat_id = event.chat_id
-
-    key = (
-        chat_id,
-        username
-    )
-
-    print(
-        f'Остановка Auto: '
-        f'@{username}, '
-        f'chat={chat_id}'
-    )
-
-    task = auto_tasks.pop(
-        key,
-        None
-    )
-
-    if task:
-
-        task.cancel()
-
-        print(
-            f'Auto успешно остановлен: '
-            f'@{username}'
-        )
-
-    else:
-
-        print(
-            f'Auto не найден: '
-            f'@{username} '
-            f'в чате {chat_id}'
-        )
  
 # ==============================
 # СОСТОЯНИЕ ПРОЦЕССА БОТА
@@ -688,8 +501,8 @@ def get_random_photo():
 
 
 FRAME_SYMBOLS = [
-    '',
-    ''
+    '⛧',
+    '†'
 ]
 
 
@@ -1524,22 +1337,20 @@ async def show_menu(event):
     menu_text = """
 ⛧ yocio menu ⛧
 
-⛧ .startrp @user @user  — добавить таргетов
-⛧ .unrp @user @user — удалить таргетов
+⛧ .startrp @user1 @user2  — добавить таргетов
+⛧ .unrp @user1 @user2 — удалить таргетов
 ⛧ .list — список таргетов
 ⛧ .clearrp — удалить всех таргетов
 ⛧ .tagger @username 5 сек — запустить теггер
 ⛧ .stoptagger — остановить теггер
 ⛧ .photo @username photo.jpg — назначить фото
 ⛧ .id — показать айди
-⛧ .add @user — спам текстом
-⛧ .stopadd — останавливает спам
 ⛧ .pickmeon — включить пикми режим
 ⛧ .pickmeoff — выключить пикми режим
 ⛧ .menu — меню
-⛧ .chatid — показывает айди чата
+⛧ .chatid - показывает айди чата
 
-⛧ owner @sertypa | @ruharded ⛧
+⛧ owner t.me/sertypa ⛧
 """
     
     await event.respond(menu_text)
@@ -1549,27 +1360,19 @@ async def show_menu(event):
 # ЗАПУСК
 
 
-
 async def main():
-    print('Запускается...')
 
-    await bot.connect()
+    print(
+        'Запускается...'
+    )
 
-    if not await bot.is_user_authorized():
-        raise RuntimeError(
-            "Сессия не авторизована. Проверь TELEGRAM_SESSION в Railway."
-        )
+    await bot.start()
 
-    print('Успешный запуск')
+    print(
+        'успешный запуск'
+    )
+
     await bot.run_until_disconnected()
-
-
-if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print('\nUserbot stopped')
-
 
 
 # START
