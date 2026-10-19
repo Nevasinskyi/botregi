@@ -1,1 +1,1 @@
-web: python nevabot.py
+python nevabot.py
