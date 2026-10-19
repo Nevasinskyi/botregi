@@ -1,1 +1,0 @@
-python nevabot.py
