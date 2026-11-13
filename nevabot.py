@@ -178,8 +178,8 @@ async def avto_handler(event):
         await event.edit("Интервал должен быть числом.")
         return
 
-    if interval < 5:
-        await event.edit("Минимальный интервал — 5 секунд.")
+    if interval < 1:
+        await event.edit("Минимальный интервал — 1 секунд.")
         return
 
     if event.chat_id in avto_tasks:
