@@ -178,7 +178,7 @@ async def avto_handler(event):
         await event.edit("Интервал должен быть числом.")
         return
 
-    if interval < 5:
+    if interval < 1:
         await event.edit("Минимальный интервал — 1 секунд.")
         return
 
