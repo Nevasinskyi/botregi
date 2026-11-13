@@ -140,19 +140,67 @@ def load_templates():
     ]
 
 
+
 avto_tasks = {}
 
-async def sender():
-    try:
-        while True:
-            await event.respond(message)
-            await asyncio.sleep(1)
-    except asyncio.CancelledError:
-        pass
-    finally:
-        avto_tasks.pop(event.chat_id, None)
+@bot.on(events.NewMessage(
+    outgoing=True,
+    pattern=r'^\.avto(?:\s+(.+))?$'
+))
+async def avto_handler(event):
+    if event.sender_id != OWNER_ID:
+        return
 
-        
+    args = event.pattern_match.group(1)
+
+    # Остановка
+    if args and args.strip().lower() == "stop":
+        task = avto_tasks.get(event.chat_id)
+
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+            await event.edit("Автоотправка остановлена.")
+        else:
+            await event.edit("Автоотправка не запущена.")
+        return
+
+    if not args:
+        await event.edit("Использование: .avto Привет")
+        return
+
+    if event.chat_id in avto_tasks:
+        await event.edit("Автоотправка уже запущена. Напиши .avto stop")
+        return
+
+    message = args.strip()
+
+    async def sender():
+        try:
+            for _ in range(5000000000000000000000):
+                await bot.send_message(event.chat_id, message)
+                await asyncio.sleep(1)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as error:
+            print(f"[AVTO] Ошибка: {error}")
+
+        finally:
+            avto_tasks.pop(event.chat_id, None)
+
+    task = asyncio.create_task(sender())
+    avto_tasks[event.chat_id] = task
+
+    await event.edit("Тестовая автоотправка запущена: 5 сообщений, интервал 1 секунда.")
+
+
+
 # ==============================
 # ДОПОЛНИТЕЛЬНЫЕ КОМАНДЫ УПРАВЛЕНИЯ
 # ==============================
