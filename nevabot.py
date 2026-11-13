@@ -142,64 +142,17 @@ def load_templates():
 
 avto_tasks = {}
 
-@bot.on(events.NewMessage(outgoing=True, pattern=r'^\.avto(?:\s+(.+))?$'))
-async def avto_handler(event):
-    args = event.pattern_match.group(1)
-
-    if not args:
-        await event.edit(
-            "Использование:\n"
-            ".avto Привет 1\n"
-            ".avto stop"
-        )
-        return
-
-    if args.strip().lower() == "stop":
-        task = avto_tasks.get(event.chat_id)
-
-        if task:
-            task.cancel()
-            avto_tasks.pop(event.chat_id, None)
-            await event.edit("Автоотправка остановлена.")
-        else:
-            await event.edit("Автоотправка не запущена.")
-        return
-
-    parts = args.rsplit(maxsplit=1)
-
-    if len(parts) != 2:
-        await event.edit("Укажи текст и интервал.\n.avto Привет 1")
-        return
-
-    message = parts[0]
+async def sender():
     try:
-        interval = float(parts[1].replace(",", "."))
-    except ValueError:
-        await event.edit("Интервал должен быть числом.")
-        return
+        while True:
+            await event.respond(message)
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        pass
+    finally:
+        avto_tasks.pop(event.chat_id, None)
 
-    if interval < 1:
-        await event.edit("Минимальный интервал — 1 секунд.")
-        return
-
-    if event.chat_id in avto_tasks:
-        await event.edit("Автоотправка уже запущена. Напиши .avto stop")
-        return
-
-    await event.delete()
-
-    async def sender():
-        try:
-            for _ in range(20000000000000000000000000000000000000000000000000):
-                await event.respond(message)
-                await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            pass
-        finally:
-            avto_tasks.pop(event.chat_id, None)
-
-    avto_tasks[event.chat_id] = asyncio.create_task(sender())
-
+        
 # ==============================
 # ДОПОЛНИТЕЛЬНЫЕ КОМАНДЫ УПРАВЛЕНИЯ
 # ==============================
