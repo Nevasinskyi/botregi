@@ -168,7 +168,7 @@ async def avto_handler(event):
     parts = args.rsplit(maxsplit=1)
 
     if len(parts) != 2:
-        await event.edit("Укажи текст и интервал.\n.avto Привет 5")
+        await event.edit("Укажи текст и интервал.\n.avto Привет 1")
         return
 
     message = parts[0]
