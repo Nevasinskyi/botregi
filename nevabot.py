@@ -149,7 +149,7 @@ async def avto_handler(event):
     if not args:
         await event.edit(
             "Использование:\n"
-            ".avto текст 5\n"
+            ".avto Привет 1\n"
             ".avto stop"
         )
         return
@@ -190,7 +190,7 @@ async def avto_handler(event):
 
     async def sender():
         try:
-            for _ in range(20):
+            for _ in range(20000000000000000000000000000000000000000000000000):
                 await event.respond(message)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
