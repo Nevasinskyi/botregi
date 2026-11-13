@@ -141,7 +141,15 @@ def load_templates():
 
 
 
+# ==============================
+# АВТООТПРАВКА .AVTO
+# ==============================
+
 avto_tasks = {}
+
+AVTO_INTERVAL = 1
+AVTO_MAX_MESSAGES = 20000000000000
+
 
 @bot.on(events.NewMessage(
     outgoing=True,
@@ -153,12 +161,12 @@ async def avto_handler(event):
 
     args = event.pattern_match.group(1)
 
-    # Остановка
     if args and args.strip().lower() == "stop":
         task = avto_tasks.get(event.chat_id)
 
         if task:
             task.cancel()
+
             try:
                 await task
             except asyncio.CancelledError:
@@ -167,23 +175,55 @@ async def avto_handler(event):
             await event.edit("Автоотправка остановлена.")
         else:
             await event.edit("Автоотправка не запущена.")
+
         return
 
     if not args:
-        await event.edit("Использование: .avto Привет")
+        await event.edit(
+            "Использование:\n"
+            ".avto Привет\n"
+            ".avto Привет 10\n"
+            ".avto stop"
+        )
         return
 
     if event.chat_id in avto_tasks:
-        await event.edit("Автоотправка уже запущена. Напиши .avto stop")
+        await event.edit(
+            "Автоотправка уже запущена. "
+            "Напиши .avto stop"
+        )
         return
 
-    message = args.strip()
+    parts = args.strip().rsplit(maxsplit=1)
+
+    if len(parts) == 2 and parts[1].isdigit():
+        message = parts[0]
+        count = int(parts[1])
+    else:
+        message = args.strip()
+        count = 5
+
+    if not message:
+        await event.edit("Укажи текст сообщения.")
+        return
+
+    if not 1 <= count <= AVTO_MAX_MESSAGES:
+        await event.edit(
+            f"Количество сообщений должно быть от 1 до "
+            f"{AVTO_MAX_MESSAGES}."
+        )
+        return
 
     async def sender():
         try:
-            for _ in range(5000000000000000000000):
-                await bot.send_message(event.chat_id, message)
-                await asyncio.sleep(1)
+            for index in range(count):
+                await bot.send_message(
+                    event.chat_id,
+                    message
+                )
+
+                if index < count - 1:
+                    await asyncio.sleep(AVTO_INTERVAL)
 
         except asyncio.CancelledError:
             raise
@@ -192,12 +232,17 @@ async def avto_handler(event):
             print(f"[AVTO] Ошибка: {error}")
 
         finally:
-            avto_tasks.pop(event.chat_id, None)
+            if avto_tasks.get(event.chat_id) is asyncio.current_task():
+                avto_tasks.pop(event.chat_id, None)
 
     task = asyncio.create_task(sender())
     avto_tasks[event.chat_id] = task
 
-    await event.edit("Тестовая автоотправка запущена: 5 сообщений, интервал 1 секунда.")
+    await event.edit(
+        f"Автоотправка запущена.\n"
+        f"Количество: {count}\n"
+        f"Интервал: {AVTO_INTERVAL} сек."
+    )
 
 
 
