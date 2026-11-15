@@ -1545,6 +1545,9 @@ async def show_menu(event):
 ⛧ .clearrp — удалить всех таргетов
 ⛧ .photo @username photo.jpg — назначить фото
 ⛧ .id — показать айди
+⛧ .antimut on - включить антимут
+⛧ .antimut off - выключить антимут
+⛧ .antimut- проверить состояние антимута
 ⛧ .pickmeon — включить пикми режим
 ⛧ .pickmeoff — выключить пикми режим
 ⛧ .menu — меню
