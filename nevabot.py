@@ -2,8 +2,6 @@ import asyncio
 import html
 import random
 import os
-import asyncio
-from telethon import events
 import time
 import re
 import psutil
@@ -138,112 +136,6 @@ def load_templates():
         ).splitlines()
         if line.strip()
     ]
-
-
-
-# ==============================
-# АВТООТПРАВКА .AVTO
-# ==============================
-
-avto_tasks = {}
-
-AVTO_INTERVAL = 1
-AVTO_MAX_MESSAGES = 20000000000000
-
-
-@bot.on(events.NewMessage(
-    outgoing=True,
-    pattern=r'^\.avto(?:\s+(.+))?$'
-))
-async def avto_handler(event):
-    if event.sender_id != OWNER_ID:
-        return
-
-    args = event.pattern_match.group(1)
-
-    if args and args.strip().lower() == "stop":
-        task = avto_tasks.get(event.chat_id)
-
-        if task:
-            task.cancel()
-
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-            await event.edit("Автоотправка остановлена.")
-        else:
-            await event.edit("Автоотправка не запущена.")
-
-        return
-
-    if not args:
-        await event.edit(
-            "Использование:\n"
-            ".avto Привет\n"
-            ".avto Привет 10\n"
-            ".avto stop"
-        )
-        return
-
-    if event.chat_id in avto_tasks:
-        await event.edit(
-            "Автоотправка уже запущена. "
-            "Напиши .avto stop"
-        )
-        return
-
-    parts = args.strip().rsplit(maxsplit=1)
-
-    if len(parts) == 2 and parts[1].isdigit():
-        message = parts[0]
-        count = int(parts[1])
-    else:
-        message = args.strip()
-        count = 5
-
-    if not message:
-        await event.edit("Укажи текст сообщения.")
-        return
-
-    if not 1 <= count <= AVTO_MAX_MESSAGES:
-        await event.edit(
-            f"Количество сообщений должно быть от 1 до "
-            f"{AVTO_MAX_MESSAGES}."
-        )
-        return
-
-    async def sender():
-        try:
-            for index in range(count):
-                await bot.send_message(
-                    event.chat_id,
-                    message
-                )
-
-                if index < count - 1:
-                    await asyncio.sleep(AVTO_INTERVAL)
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception as error:
-            print(f"[AVTO] Ошибка: {error}")
-
-        finally:
-            if avto_tasks.get(event.chat_id) is asyncio.current_task():
-                avto_tasks.pop(event.chat_id, None)
-
-    task = asyncio.create_task(sender())
-    avto_tasks[event.chat_id] = task
-
-    await event.edit(
-        f"Автоотправка запущена.\n"
-        f"Количество: {count}\n"
-        f"Интервал: {AVTO_INTERVAL} сек."
-    )
-
 
 
 # ==============================
@@ -415,25 +307,6 @@ async def control_commands_handler(event):
             await bot.delete_messages(chat, ids)
         except Exception as error:
             print(f"[CONTROL] Ошибка удаления: {error}")
-        return
-
-    # ------------------------------
-    # .del
-    # Удаляет команду и последнее сохранённое своё сообщение
-    # ------------------------------
-    if command == "del":
-        chat = await event.get_input_chat()
-        ids = [event.id]
-
-        if _last_own_message_id is not None:
-            ids.append(_last_own_message_id)
-
-        try:
-            await bot.delete_messages(chat, list(set(ids)))
-            _last_own_message_id = None
-        except Exception as error:
-            print(f"[CONTROL] Ошибка удаления: {error}")
-            await event.edit("Не удалось удалить сообщение.")
         return
 
     # ------------------------------
@@ -691,7 +564,26 @@ async def handler(event):
     finally:
         processing.discard(key)
 
+@bot.on(events.NewMessage(outgoing=True, pattern=r'^\.antimut(?:\s+(on|off))?$'))
+async def antimut_command(event):
+    global antimut_enabled
 
+    if event.sender_id != OWNER_ID:
+        return
+
+    action = event.pattern_match.group(1)
+
+    if action == "on":
+        antimut_enabled = True
+        await event.edit("ANTIMUT: ON")
+
+    elif action == "off":
+        antimut_enabled = False
+        await event.edit("ANTIMUT: OFF")
+
+    else:
+        status = "ON" if antimut_enabled else "OFF"
+        await event.edit(f"ANTIMUT: {status}")
 
 # .STARTRP
 
@@ -1650,16 +1542,11 @@ async def show_menu(event):
 ⛧ .startrp @user1 @user2  — добавить таргетов
 ⛧ .unrp @user1 @user2 — удалить таргетов
 ⛧ .list — список таргетов
-⛧ .help - показывает список команд управления
 ⛧ .clearrp — удалить всех таргетов
 ⛧ .photo @username photo.jpg — назначить фото
 ⛧ .id — показать айди
-⛧ .del - удаляет команду и последнее сохранённое сообщение
-⛧ .sys - показывает загрузку CPU, память и время работы
 ⛧ .pickmeon — включить пикми режим
 ⛧ .pickmeoff — выключить пикми режим
-⛧ .avto - запустить авто режим
-⛧ .photo @username photo.jpg назначает фотографию пользователю
 ⛧ .menu — меню
 ⛧ .chatid - показывает айди чата
 
@@ -1668,7 +1555,70 @@ async def show_menu(event):
     
     await event.respond(menu_text)
 
+# ==========================================
+# ANTIMUT — АВТОРЕДАКТИРОВАНИЕ СООБЩЕНИЙ
+# ==========================================
 
+antimut_enabled = False
+antimut_counter = 0
+
+
+@bot.on(events.NewMessage(outgoing=True))
+async def antimut_editor(event):
+    global antimut_enabled, antimut_counter
+
+    if event.sender_id != OWNER_ID:
+        return
+
+    if not antimut_enabled:
+        return
+
+    text = event.raw_text or ""
+
+    if not text.strip():
+        return
+
+    # Не редактируем команды
+    if text.startswith((".", "!")):
+        return
+
+    antimut_counter += 1
+
+    digit = antimut_counter % 10
+    new_text = text + str(digit)
+
+    try:
+        await event.edit(new_text)
+        print(f"[ANTIMUT] Сообщение изменено: {event.id}")
+
+    except Exception as error:
+        print(f"[ANTIMUT] Ошибка: {error}")
+
+
+# ==========================================
+# УПРАВЛЕНИЕ ANTIMUT
+# ==========================================
+
+@bot.on(events.NewMessage(outgoing=True, pattern=r'^\.antimut(?:\s+(on|off))?$'))
+async def antimut_command(event):
+    global antimut_enabled
+
+    if event.sender_id != OWNER_ID:
+        return
+
+    action = event.pattern_match.group(1)
+
+    if action == "on":
+        antimut_enabled = True
+        await event.edit("ANTIMUT включён.")
+
+    elif action == "off":
+        antimut_enabled = False
+        await event.edit("ANTIMUT выключен.")
+
+    else:
+        status = "Включён" if antimut_enabled else "Выключен"
+        await event.edit(f"ANTIMUT: {status}")
 
 # ЗАПУСК
 
