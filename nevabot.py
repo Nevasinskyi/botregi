@@ -260,7 +260,10 @@ async def typer_handler(event):
         await event.edit("Файл typer.txt не найден на Railway!")
         return
 
-    text = file_path.read_text(encoding="utf-8-sig", errors="replace")
+    try:
+    text = file_path.read_text(encoding="utf-8-sig")
+except UnicodeDecodeError:
+    text = file_path.read_text(encoding="cp1251")
     words = text.split()
 
     print(f"[TYPER] Найдено слов: {len(words)}")
