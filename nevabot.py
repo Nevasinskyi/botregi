@@ -249,10 +249,18 @@ async def typer_handler(event):
     if event.sender_id != OWNER_ID:
         return
 
-    with open("typer.txt", "r", encoding="utf-8") as file:
-        text = file.read()
+    file_path = BASE_DIR / "typer.txt"
 
+    if not file_path.exists():
+        await event.reply("Файл typer.txt не найден!")
+        return
+
+    text = file_path.read_text(encoding="utf-8")
     words = text.split()
+
+    if not words:
+        await event.reply("Файл пустой!")
+        return
 
     await event.delete()
 
