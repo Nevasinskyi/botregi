@@ -244,30 +244,40 @@ async def avto_handler(event):
         f"Интервал: {AVTO_INTERVAL} сек."
     )
 
-@bot.on(events.NewMessage(outgoing=True, pattern=r'^\.typer$'))
+@@bot.on(events.NewMessage(
+    outgoing=True,
+    pattern=r'^\.typer$'
+))
 async def typer_handler(event):
     if event.sender_id != OWNER_ID:
         return
 
     file_path = BASE_DIR / "typer.txt"
 
-    if not file_path.exists():
-        await event.reply("Файл typer.txt не найден!")
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        await event.edit("Файл typer.txt не найден!")
+        return
+    except Exception as error:
+        await event.edit(f"Ошибка чтения файла: {error}")
         return
 
-    text = file_path.read_text(encoding="utf-8")
     words = text.split()
 
     if not words:
-        await event.reply("Файл пустой!")
+        await event.edit("Файл пустой!")
         return
 
     await event.delete()
 
     for word in words:
-        await bot.send_message(event.chat_id, word)
-        await asyncio.sleep(0.5)
-
+        try:
+            await bot.send_message(event.chat_id, word)
+            await asyncio.sleep(0.5)
+        except Exception as error:
+            print(f"[TYPER] Ошибка отправки: {error}")
+            break
 # ==============================
 # ДОПОЛНИТЕЛЬНЫЕ КОМАНДЫ УПРАВЛЕНИЯ
 # ==============================
