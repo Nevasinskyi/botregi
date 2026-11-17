@@ -270,9 +270,17 @@ async def typer_handler(event):
 
     for word in words:
         await bot.send_message(event.chat_id, word)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
 
     print("[TYPER] Завершено")
+
+@bot.on(events.NewMessage(outgoing=True, pattern=r'^\.typer stop$'))
+async def typer_stop(event):
+    for task in list(typer_tasks):
+        if not task.done():
+            task.cancel()
+
+    await event.edit("Тайпер остановлен")
 
 
 # ==============================
